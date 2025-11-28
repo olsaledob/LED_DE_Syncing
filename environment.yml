@@ -1,0 +1,14 @@
+name: syncenv
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - numpy>=1.26
+  - pandas>=2.0
+  - matplotlib>=3.7
+  - seaborn>=0.12
+  - h5py>=3.9
+  - tqdm>=4.65
+  - toml>=0.10.2
+  - pytest>=7.4

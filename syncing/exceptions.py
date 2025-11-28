@@ -1,0 +1,14 @@
+class SyncError(Exception): pass
+class FileNotFoundErrorSync(SyncError): pass
+class HSIdNotFoundError(SyncError): pass
+class LedLogNotFoundError(SyncError): pass
+class LedLogNameMismatchError(SyncError): pass
+class DENotFound(SyncError): pass
+class HandshakeError(SyncError): pass
+class TimeDiffComparisonError(SyncError): pass
+class UnclassifiedAnomalyError(SyncError): pass
+class StimPhaseError(SyncError): pass
+class PauseLineError(SyncError): pass
+class DEIndexSizeError(SyncError): pass
+class LedLogNoValidDataError(SyncError): pass
+class TimestepMismatchError(SyncError): pass

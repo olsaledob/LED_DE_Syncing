@@ -1,0 +1,50 @@
+[paths]
+path_led_dir     = "E:\\Git\\CIDBN\\SyncingExampleData\\LED"
+path_h5_dir      = "E:\\Git\\CIDBN\\SyncingExampleData\\DE"
+path_spike_dir   = "C:\\CIDBN\\spike"
+path_to_results  = "E:\\Git\\CIDBN\\SyncingExampleData\\Results"
+log_dir          = "E:\\Git\\CIDBN\\SyncingExampleData\\Logs"
+
+[parameters]
+rec_id_start = 0
+rec_id_end   = 1000
+threshold    = 180
+log_level    = "DEBUG"
+sync_duration_sec = 9
+post_stim_phase = 0
+
+[arduino.bytes]
+BYTE_M = 109  # 'M'
+BYTE_R = 114  # 'R'
+BYTE_V = 118  # 'V' 
+BYTE_W = 119  # 'W'
+BYTE_X = 120  # 'X'
+BYTE_Y = 121  # 'Y'
+BYTE_Z = 122  # 'Z'
+
+[handshake.start_sequences]
+start_intended =        [20000, 130000, 45000, 12000]
+start_variant1 =        [20000, 130000, 140000]
+start_variant2 =        [20000, 130000, 120000]
+start_first_missing =   [130000, 45000, 12000]
+start_last_missing =    [20000, 130000, 45000]
+start_beginning_fuzed = [150000, 45000, 12000]
+start_middle_fuzed =    [20000, 175000, 12000]
+start_end_fuzed =       [20000, 130000, 57000]
+
+[handshake.stop_sequences]
+stop_intended =         [20000, 130000, 45000,  12000, 100000]
+stop_variant1 =         [20000, 130000, 45000,  12000, 10000]
+stop_first_missing =    [130000,  45000,  12000, 100000]
+stop_v1_first_missing = [130000,  45000,  12000, 10000]
+stop_first_fuzed =      [150000, 45000,  12000, 100000]
+stop_v1_first_fuzed =   [150000, 45000,  12000, 10000]
+stop_second_fuzed =     [20000, 175000,  12000, 100000]
+stop_v1_second_fuzed =  [20000, 175000,  12000, 10000]
+stop_third_fuzed =      [20000, 130000,  57000, 100000]
+stop_v1_third_fuzed =   [20000, 130000,  57000, 10000]
+stop_end_fuzed =        [20000, 130000,  45000,  112000]
+stop_v1_end_fuzed =     [20000, 130000, 45000, 22000]
+stop_sketchy =          [20000, 130000, 57000]
+stop_really_sketchy =   [130000, 57000]
+stop_extremely_sketchy =[20000, 187000]
