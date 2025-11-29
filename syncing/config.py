@@ -7,7 +7,6 @@ class SyncConfig:
     # Paths
     path_led_dir: str
     path_h5_dir: str
-    path_spike_dir: str
     path_to_results: str
     log_dir: str
 
@@ -37,7 +36,6 @@ class SyncConfig:
             # Paths
             path_led_dir=paths["path_led_dir"],
             path_h5_dir=paths["path_h5_dir"],
-            path_spike_dir=paths["path_spike_dir"],
             path_to_results=paths["path_to_results"],
             log_dir=paths.get("log_dir", "./logs"),
 

@@ -18,15 +18,20 @@ pip install -r requirements.txt
 
 ## Running the Sync
 *Note: In the future new methods for selecting recordings will be added. For now this is limited to folder-handling.*
-Once you have your environment set up and activated, you can run the sync pipeline from the root of the repository. Make sure you configure the `config.toml` file in the project root.  
-It should contain your paths and parameters. Most importantly, set the values below accordingly:
+
+Once you have your environment set up and activated, you can run the sync script from the root of the repository. 
+
+```bash
+python run_sync.py
+```
+
+Make sure you configure the `config.toml` file in the project root. It should contain your paths and parameters. Most importantly, set the values below accordingly:
 
 
 ```toml
 [paths]
 path_led_dir     = "E:\\Git\\CIDBN\\SyncingExampleData\\LED"
 path_h5_dir      = "E:\\Git\\CIDBN\\SyncingExampleData\\DE"
-path_spike_dir   = "C:\\CIDBN\\spike"
 path_to_results  = "E:\\Git\\CIDBN\\SyncingExampleData\\Results"
 log_dir          = "E:\\Git\\CIDBN\\SyncingExampleData\\Logs"
 
@@ -35,8 +40,5 @@ rec_id_start        = 1
 rec_id_end          = 999
 ```
 
-Depending on your operating system, make sure to pass the locations correctly (e.g. escape '\' under windows). Then you can run it via
+Depending on your operating system, make sure to pass the locations correctly (e.g. escape '\' under windows).
 
-```bash
-python run_sync.py
-```

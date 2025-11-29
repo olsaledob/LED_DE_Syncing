@@ -1,9 +1,8 @@
 [paths]
-path_led_dir     = "E:\\Git\\CIDBN\\SyncingExampleData\\LED"
-path_h5_dir      = "E:\\Git\\CIDBN\\SyncingExampleData\\DE"
-path_spike_dir   = "C:\\CIDBN\\spike"
-path_to_results  = "E:\\Git\\CIDBN\\SyncingExampleData\\Results"
-log_dir          = "E:\\Git\\CIDBN\\SyncingExampleData\\Logs"
+path_led_dir     = "C:\\CIDBN\\example_data\\led"
+path_h5_dir      = "C:\\CIDBN\\example_data\\de"
+path_to_results  = "C:\\CIDBN\\example_data\\results"
+log_dir          = "C:\\CIDBN\\example_data\\logs"
 
 [parameters]
 rec_id_start = 0

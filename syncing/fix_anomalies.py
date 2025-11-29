@@ -56,38 +56,49 @@ class AnomalyFixer:
                     handshake_map[idx] = "stop_handshake"
 
         # Process anomalies
+        offset = 0
+        for idx in range(len(arduino_ts)):
+            if idx > 0 and arduino_ts[idx] < arduino_ts[idx - 1]:
+                offset += 2**32
+            arduino_ts[idx] += offset
+
         d_e_index = 0
         for i, (orig_ts, pat, lt) in enumerate(zip(arduino_ts, arduino_patterns, arduino_linetypes)):
             anomaly_type = anomaly_map.get(i, None)
 
-            # Normal line
             if anomaly_type is None:
                 corrected_ts.append(mea_ts[d_e_index])
                 corrected_patterns.append(pat)
                 d_e_index += 1
-            # Merge
+
             elif anomaly_type == "merge":
-                d_e_index += 1
                 corrected_ts.append(mea_ts[d_e_index])
                 corrected_patterns.append(pat)
-                d_e_index += 1
-            # Split 2 (update to original semantics later)
+                d_e_index += 2
+
             elif anomaly_type == "split_2":
                 corrected_ts.append(mea_ts[d_e_index - 1] + (arduino_ts[i] - arduino_ts[i - 1]))
                 corrected_patterns.append(pat)
-                if i + 1 < len(arduino_patterns):
-                    corrected_ts.append(mea_ts[d_e_index])
-                    corrected_patterns.append(arduino_patterns[i + 1])
+                corrected_ts.append(mea_ts[d_e_index])
+                corrected_patterns.append(arduino_patterns[i + 1])
                 d_e_index += 1
-            elif anomaly_type == "overflow":
-                new_ts = orig_ts + 2**32
-                corrected_ts.append(new_ts)
+
+            elif anomaly_type == "split_3":
+                corrected_ts.append(mea_ts[d_e_index - 1] + (arduino_ts[i] - arduino_ts[i - 1]))
                 corrected_patterns.append(pat)
+                corrected_ts.append(mea_ts[d_e_index - 1] + 
+                                    (arduino_ts[i] - arduino_ts[i - 1]) + 
+                                    (arduino_ts[i + 1] - arduino_ts[i]))
+                corrected_patterns.append(arduino_patterns[i + 1])
+                corrected_ts.append(mea_ts[d_e_index])
+                corrected_patterns.append(arduino_patterns[i + 2])
                 d_e_index += 1
+
             elif anomaly_type == "pause":
                 corrected_ts.append(mea_ts[d_e_index])
                 corrected_patterns.append(pat)
                 d_e_index += 1
+
             elif anomaly_type == "unclassified":
                 corrected_ts.append(mea_ts[d_e_index])
                 corrected_patterns.append(pat)
