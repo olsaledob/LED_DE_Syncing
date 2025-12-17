@@ -30,7 +30,11 @@ start_last_missing =    [20000, 130000, 45000]
 start_beginning_fuzed = [150000, 45000, 12000]
 start_middle_fuzed =    [20000, 175000, 12000]
 start_end_fuzed =       [20000, 130000, 57000]
-start_geometric =       [6000, 120000, 24000, 48000, 96000]
+start_geometric =       [6000, 12000, 24000, 48000, 96000]
+start_geometric_first_missing = [12000, 24000, 48000, 96000]
+start_seq_first_merged = [18000, 24000, 48000, 96000]
+start_seq_last_missing = [6000, 12000, 24000, 48000]
+
 
 [handshake.stop_sequences]
 stop_intended =         [20000, 130000, 45000,  12000, 100000]
