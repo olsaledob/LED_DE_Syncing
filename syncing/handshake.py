@@ -19,8 +19,8 @@ class HandshakeDetector:
         Args:
             cfg: SyncConfig dataclass loaded from TOML
         """
-        self.start_sequences = cfg.handshake_start_sequences  # dict from TOML
-        self.stop_sequences = cfg.handshake_stop_sequences    # dict from TOML
+        self.start_sequences = cfg.handshake_start_sequences
+        self.stop_sequences = cfg.handshake_stop_sequences 
 
     def find(
         self,

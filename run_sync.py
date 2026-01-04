@@ -111,7 +111,9 @@ def main():
                     mea_ts=digital.timestamps,
                     output_npz_path=output_npz,
                     correction_log_path=correction_csv,
-                    handshake_pairs=handshake_pairs_led
+                    handshake_pairs=handshake_pairs_led,
+                    start_names=start_names_led,
+                    stop_names=stop_names_led
                 )
 
                 processed_files.append(mea_filename)

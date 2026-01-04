@@ -28,7 +28,9 @@ class AnomalyFixer:
          mea_ts: np.ndarray,
          output_npz_path: str,
          correction_log_path: str,
-         handshake_pairs: Optional[List[Tuple[Tuple[int, int], Tuple[int, int]]]] = None
+         handshake_pairs: Optional[List[Tuple[Tuple[int, int], Tuple[int, int]]]] = None,
+         start_names=None,
+         stop_names=None
          ) -> None:
         """
         Fix anomalies and produce npz + correction log.
@@ -38,10 +40,8 @@ class AnomalyFixer:
         """
         logger.info("Starting anomaly fixing...")
 
-        # --- Prepare anomaly lookup ---
         anomaly_map: Dict[int, str] = {idx: t for idx, t in self.anomalies}
 
-        # --- Prepare handshake marking ---
         handshake_map: Dict[int, str] = {}
         if handshake_pairs:
             for (start_range, stop_range) in handshake_pairs:
@@ -52,7 +52,6 @@ class AnomalyFixer:
                 for idx in stop_ts_indices:
                     handshake_map[idx] = "stop_handshake"
 
-        # --- Global overflow fix ---
         offset = 0
         overflow_info = []
         for idx in range(len(arduino_ts)):
@@ -65,7 +64,6 @@ class AnomalyFixer:
             arduino_ts[idx] += offset
             overflow_info.append((overflow_flag, offset))
 
-        # --- Correction data ---
         corrected_ts = []
         corrected_patterns = []
         correction_records = []
@@ -74,13 +72,14 @@ class AnomalyFixer:
         prev_orig_ts = None
         prev_corr_ts = None
 
+        index_offset = 0
+
         success = True
 
         try: 
             for i, (orig_ts, pat, lt) in enumerate(zip(arduino_ts, arduino_patterns, arduino_linetypes)):
                 anomaly_type = anomaly_map.get(i, None)
-
-                # record template
+                
                 record = {
                     "original_index": i,
                     "original_timestamp": orig_ts,
@@ -94,33 +93,33 @@ class AnomalyFixer:
                     "extra_inserts": 0,
                     "delta_original": None,
                     "delta_corrected": None,
-                    "delta_diff_change": None
+                    "delta_diff_change": None,
+                    "index_offset": index_offset   
                 }
+            
+                if record["handshake_phase"] == "start_handshake":
+                    index_offset = 0
+                record["index_offset"] = index_offset        
 
-                # calculate original delta
                 if prev_orig_ts is not None:
                     record["delta_original"] = orig_ts - prev_orig_ts
 
-                # ---- anomaly handling ----
                 if anomaly_type is None:
                     corr_ts = mea_ts[d_e_index]
                     record["mea_indices_used"].append(d_e_index)
                     d_e_index += 1
 
                 elif anomaly_type == "merge":
-                    # Map current Arduino entry to current MEA timestamp
                     corr_ts = mea_ts[d_e_index]
                     record["mea_indices_used"].append(d_e_index)
-                    # Skip one MEA entry because merge combines two Arduino events
                     record["skip_count"] = 1
                     d_e_index += 2
+                    index_offset -= 1
 
                 elif anomaly_type == "split_2":
-                    # First synthetic timestamp
                     first_corr_ts = mea_ts[d_e_index - 1] + (orig_ts - arduino_ts[i - 1])
                     corrected_ts.append(first_corr_ts)
                     corrected_patterns.append(pat)
-                    # Record synthetic timestamp separately
                     correction_records.append({
                         **record,
                         "corrected_timestamp": first_corr_ts,
@@ -130,7 +129,6 @@ class AnomalyFixer:
                         "delta_corrected": (first_corr_ts - prev_corr_ts) if prev_corr_ts is not None else None
                     })
 
-                    # Second actual MEA timestamp
                     second_corr_ts = mea_ts[d_e_index]
                     corrected_ts.append(second_corr_ts)
                     corrected_patterns.append(arduino_patterns[i + 1])
@@ -144,12 +142,12 @@ class AnomalyFixer:
                     })
 
                     d_e_index += 1
+                    index_offset += 1
                     prev_orig_ts = orig_ts
                     prev_corr_ts = second_corr_ts
-                    continue  # we already appended two records
+                    continue
 
                 elif anomaly_type == "split_3":
-                    # first synthetic
                     first_corr_ts = mea_ts[d_e_index - 1] + (orig_ts - arduino_ts[i - 1])
                     corrected_ts.append(first_corr_ts)
                     corrected_patterns.append(pat)
@@ -160,7 +158,6 @@ class AnomalyFixer:
                         "mea_indices_used": [d_e_index - 1]
                     })
 
-                    # second synthetic
                     second_corr_ts = mea_ts[d_e_index - 1] + \
                                     (orig_ts - arduino_ts[i - 1]) + \
                                     (arduino_ts[i + 1] - arduino_ts[i])
@@ -173,7 +170,6 @@ class AnomalyFixer:
                         "mea_indices_used": [d_e_index - 1]
                     })
 
-                    # final actual MEA timestamp
                     third_corr_ts = mea_ts[d_e_index]
                     corrected_ts.append(third_corr_ts)
                     corrected_patterns.append(arduino_patterns[i + 2])
@@ -185,6 +181,7 @@ class AnomalyFixer:
                     })
 
                     d_e_index += 1
+                    index_offset += 2
                     prev_orig_ts = orig_ts
                     prev_corr_ts = third_corr_ts
                     continue
@@ -195,12 +192,10 @@ class AnomalyFixer:
                     d_e_index += 1
 
                 else:
-                    # unknown anomaly type — treat as normal
                     corr_ts = mea_ts[d_e_index]
                     record["mea_indices_used"].append(d_e_index)
                     d_e_index += 1
 
-                # assign corrected delta
                 if prev_corr_ts is not None:
                     record["delta_corrected"] = corr_ts - prev_corr_ts
                     if record["delta_original"] is not None:
@@ -218,7 +213,6 @@ class AnomalyFixer:
         except Exception as e:
             success = False
             logger.exception(f"Error during anomaly fixing at index {i}: {e}")
-            # Fill remainder of correction_records with placeholders
             for j in range(i, len(arduino_ts)):
                 correction_records.append({
                     "original_index": j,
@@ -258,3 +252,22 @@ class AnomalyFixer:
             logger.info(f"Saved correction log to {base_csv}")
         else:
             logger.info(f"Saved PARTIAL correction log to {base_csv}")
+
+        idx_off = (
+            df.sort_values(["original_index"])
+              .groupby("original_index")["index_offset"]
+              .first()
+              .tolist()
+        )
+
+        from .error_log import write_error_log
+        base_name = os.path.splitext(os.path.basename(base_csv))[0]
+        write_error_log(
+            log_dir=os.path.dirname(base_csv),
+            base_name=base_name,
+            handshake_pairs=handshake_pairs or [],
+            start_names=start_names or [],
+            stop_names=stop_names or [],
+            anomalies=self.anomalies,
+            index_offset_series=idx_off
+        )
