@@ -58,7 +58,7 @@ class AnomalyFixer:
             if idx > 0 and arduino_ts[idx] < arduino_ts[idx - 1]:
                 offset += 2**32
                 overflow_flag = True
-                logger.debug(f"Arduino overflow detected at index {idx}, adding offset {offset}")
+                # logger.debug(f"Arduino overflow detected at index {idx}, adding offset {offset}")
             else:
                 overflow_flag = False
             arduino_ts[idx] += offset

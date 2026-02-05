@@ -8,7 +8,7 @@ class HandshakeError(SyncError): pass
 class TimeDiffComparisonError(SyncError): pass
 class UnclassifiedAnomalyError(SyncError): pass
 class StimPhaseError(SyncError): pass
-class PauseLineError(SyncError): pass
+class YLineError(SyncError): pass
 class DEIndexSizeError(SyncError): pass
 class LedLogNoValidDataError(SyncError): pass
 class TimestepMismatchError(SyncError): pass

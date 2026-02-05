@@ -1,6 +1,7 @@
 import os
 import sys
 from syncing.config import SyncConfig
+from syncing.yline_check import find_yline_after_start_handshake
 from syncing.logging_setup import setup_logging
 from syncing.file_matching import match_led_file, extract_expected_diff_from_filename
 from syncing.digital_events import DigitalEvents
@@ -10,6 +11,9 @@ from syncing.anomalies import AnomalyHandler
 from syncing.utils import trim_to_handshake_windows, trim_with_index_mapping
 from syncing.fix_anomalies import AnomalyFixer
 import numpy as np
+import csv
+import json
+from datetime import datetime
 import traceback
 
 def main():
@@ -21,8 +25,8 @@ def main():
     logger.info("______________________")
     logger.info("Starting Sync Pipeline")
 
-    processed_files = []
-    failed_files = []
+    run_id = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    summary_rows = []
 
     try:
         # Iterate over MEA files
@@ -33,17 +37,40 @@ def main():
             mea_path = os.path.join(cfg.path_h5_dir, mea_filename)
             logger.info(f"Processing MEA file: {mea_filename}")
 
+            row = {
+                "run_id": run_id,
+                "mea_file": mea_filename,
+                "mea_path": mea_path,
+                "led_file": None,
+                "status": "started",
+                "error_type": None,
+                "error_message": None,
+                "yline_error_found": False,
+                "yline_error_count": 0,
+                "yline_error_details": None,
+                "note": ""
+            }
+
             try:
                 # RecID filtering
                 recid_str = next((part for part in mea_filename.split("_") if "RecID" in part), None)
                 if cfg.rec_id_start or cfg.rec_id_end:
                     if not recid_str:
                         logger.warning(f"No RecID in filename, skipping: {mea_filename}")
+                        row["status"] = "skipped"
+                        row["note"] = "Skipped: no RecID in filename."
+                        summary_rows.append(row)
                         continue
                     recid_num = int(recid_str.replace("RecID", "").replace("_", ""))
                     if cfg.rec_id_start and recid_num < cfg.rec_id_start:
+                        row["status"] = "skipped"
+                        row["note"] = f"Skipped: RecID {recid_num} < rec_id_start {cfg.rec_id_start}."
+                        summary_rows.append(row)
                         continue
                     if cfg.rec_id_end and recid_num > cfg.rec_id_end:
+                        row["status"] = "skipped"
+                        row["note"] = f"Skipped: RecID {recid_num} > rec_id_end {cfg.rec_id_end}."
+                        summary_rows.append(row)
                         continue
 
                 # Match LED file
@@ -51,9 +78,22 @@ def main():
                     led_path = match_led_file(mea_filename, cfg.path_led_dir)
                 except Exception as e:
                     logger.error(f"Could not match LED file for {mea_filename}: {e}")
-                    failed_files.append((mea_filename, str(e)))
+                    row["status"] = "failed"
+                    row["error_type"] = type(e).__name__
+                    row["error_message"] = str(e)
+                    row["note"] = "Failed during LED log matching."
+                    summary_rows.append(row)
                     continue
 
+                if not led_path:
+                    row["status"] = "failed"
+                    row["error_type"] = "LedLogNotFoundError"
+                    row["error_message"] = "match_led_file returned None (likely no RecID found in MEA filename)."
+                    row["note"] = "Failed during LED log matching."
+                    summary_rows.append(row)
+                    continue
+
+                row["led_file"] = os.path.basename(led_path)
                 logger.info(f"Matched LED file: {os.path.basename(led_path)}")
 
                 # Load data
@@ -65,6 +105,28 @@ def main():
                 handshake_pairs_led, start_names_led, stop_names_led = detector.find(
                     arduino.timestamps, tolerance=cfg.threshold
                 )
+
+                y_findings = find_yline_after_start_handshake(
+                    arduino_linetypes=arduino.linetypes,
+                    handshake_pairs=handshake_pairs_led,
+                    byte_y=cfg.bytes["BYTE_Y"]
+                )
+                
+                # Because YLineErrors only occur in full stimulus blocks and never for just a number of lines
+                # after starting stimulation, this error is excepted and only logged as info!
+                # This choice was made because STAs and other analyses more easily ignore the full block instead
+                # of missing this information entirely.
+                if y_findings:
+                    row["yline_error_found"] = True
+                    row["yline_error_count"] = len(y_findings)
+                    row["yline_error_details"] = y_findings
+                    row["note"] = (row["note"] + " " if row["note"] else "") + \
+                                f"NOTE: YLineError detected after start handshake ({len(y_findings)} occurrence(s))."
+                    logger.warning(
+                        f"YLineError: first post-start-handshake line is Y in {len(y_findings)} case(s). "
+                        f"Details: {y_findings}"
+                    )
+
                 handshake_pairs_mea, start_names_mea, stop_names_mea = detector.find(
                     digital.timestamps, tolerance=cfg.threshold
                 )
@@ -116,7 +178,8 @@ def main():
                     stop_names=stop_names_led
                 )
 
-                processed_files.append(mea_filename)
+                row["status"] = "success"
+                summary_rows.append(row)
                 logger.info(f"Successfully processed {mea_filename}")
 
             except KeyboardInterrupt:
@@ -125,21 +188,33 @@ def main():
             except Exception as e:
                 logger.error(f"Error processing {mea_filename}: {e}")
                 logger.debug(traceback.format_exc())
-                failed_files.append((mea_filename, str(e)))
+                row["status"] = "failed"
+                row["error_type"] = type(e).__name__
+                row["error_message"] = str(e)
+                summary_rows.append(row)
                 continue
 
     except KeyboardInterrupt:
         logger.warning("KeyboardInterrupt detected — shutting down gracefully.")
     finally:
-        if processed_files:
-            logger.info(f"Processed {len(processed_files)} files successfully:")
-            for f in processed_files:
-                logger.info(f"  - {f}")
+        os.makedirs(cfg.log_dir, exist_ok=True)
+        summary_csv = os.path.join(cfg.log_dir, f"sync_summary_{run_id}.csv")
+        summary_json = os.path.join(cfg.log_dir, f"sync_summary_{run_id}.json")
 
-        if failed_files:
-            logger.warning(f"{len(failed_files)} files failed:")
-            for fname, err in failed_files:
-                logger.warning(f"  - {fname}: {err}")
+        if summary_rows:
+            fieldnames = list(summary_rows[0].keys())
+            with open(summary_csv, "w", newline="", encoding="utf-8") as f:
+                w = csv.DictWriter(f, fieldnames=fieldnames)
+                w.writeheader()
+                w.writerows(summary_rows)
+
+            with open(summary_json, "w", encoding="utf-8") as f:
+                json.dump(summary_rows, f, indent=2)
+
+            logger.info(f"Wrote summary CSV:  {summary_csv}")
+            logger.info(f"Wrote summary JSON: {summary_json}")
+        else:
+            logger.warning("No summary rows collected; nothing written.")
 
         logger.info("_______________________")
         logger.info("Sync Pipeline Completed")
